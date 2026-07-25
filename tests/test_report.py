@@ -97,8 +97,14 @@ class TestReportPDF:
                 generate_pdf_report(trail_with_data, str(tmp_path / "report.pdf"))
 
     def test_pdf_string_fallback(self, trail_with_data):
-        report = generate_report(trail_with_data, format="pdf")
-        assert b"%PDF-" in report
+        try:
+            import fpdf  # noqa: F401
+
+            report = generate_report(trail_with_data, format="pdf")
+            assert b"%PDF-" in report
+        except ImportError:
+            with pytest.raises(ImportError, match="fpdf2"):
+                generate_report(trail_with_data, format="pdf")
 
 
 class TestReportEmpty:
