@@ -4,12 +4,36 @@ All notable changes to Provena are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] - 2026-07-25
 
 ### Fixed
 
-- **PDF Report Generation Bug** — Fixes an issue where generate_report(..., format="pdf")
-  returns the exact same plain text output as format="text".
+- **PDF report generation** — `generate_report(..., format="pdf")` now returns actual
+  PDF bytes instead of silently falling back to plain text (#92)
+- **`export()` silent format fallback** — unsupported export formats now raise
+  `ValueError` instead of silently returning JSON (#81)
+- **`PolicyEngine.from_config()` silent typos** — unrecognized policy check names
+  now log a warning instead of being silently skipped, preventing governance
+  gaps from unnoticed misconfiguration (#94)
+- **`generate_report()` silent format fallback** — unsupported report formats
+  now raise `ValueError` instead of silently returning JSON (#89)
+- **CLI `--config` option honored** — all CLI subcommands (`audit`, `verify`,
+  `report`, `retain`, `summary`) now correctly use the `--config` file when
+  provided, instead of silently ignoring it (#43)
+- **`RetentionResult` message accuracy** — details message now says "Purged"
+  instead of "Retained" for deleted records (#88)
+- CI now installs the `pdf` extra so PDF generation is actually exercised
+
+### Added
+
+- Concise `__repr__` for `ChainVerdict`, `ValidationResult`, `FreshnessResult`,
+  `PolicyEvaluation` (#72)
+- `ContextTrail.record_count` and `ContextTrail.last_record` properties for
+  lightweight trail inspection without `summary()` aggregation (#74, #77)
+
+### Docs
+
+- `export()` docstring now lists all three supported formats (#87)
 
 ## [1.0.0] - 2026-07-22
 
