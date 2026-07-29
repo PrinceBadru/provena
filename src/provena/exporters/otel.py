@@ -55,6 +55,8 @@ class OTelExporter:
             "provena.truncated": entry.truncated,
         }
 
+        if record.id != -1:
+            attributes["provena.record_id"] = record.id
         if record.provenance_result:
             attributes["provena.provenance_status"] = record.provenance_result.status
         if record.freshness_result:

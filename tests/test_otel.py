@@ -66,6 +66,18 @@ class TestOTelExporter:
         assert attrs["provena.freshness_status"] == "UNKNOWN"
         assert attrs["provena.content_type"] == "str"
         assert attrs["provena.truncated"] is False
+        assert attrs["provena.record_id"] == 1
+
+    def test_emit_omits_record_id_when_unassigned(self):
+        # Buffered mode returns id=-1 until flush (see #50) -- a placeholder
+        # ID would be misleading on a span, so it should be omitted entirely.
+        exporter, mem = _make_otel_exporter()
+        record = _make_record(record_id=-1)
+
+        exporter.emit(record)
+
+        attrs = dict(mem.get_finished_spans()[0].attributes)
+        assert "provena.record_id" not in attrs
 
     def test_emit_disabled_no_span(self):
         _, mem = _make_otel_exporter()
@@ -240,6 +252,7 @@ class TestOTelTrailIntegration:
         assert "provena.timestamp" in attrs
         assert "provena.provenance_status" in attrs
         assert "provena.freshness_status" in attrs
+        assert "provena.record_id" in attrs
         assert attrs["provena.freshness_status"] == "STALE"
 
         trail.close()
