@@ -12,7 +12,7 @@
 
 Your AI agent just made a decision based on data from 6 different sources.
 Can you tell me which ones? Can you prove the data wasn't tampered with?
-Can you verify it was still current? 
+Can you verify it was still current?
 
 Provena adds tamper-evident audit trails to any AI agent's context pipeline — in 3 lines of Python.
 
