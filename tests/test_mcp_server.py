@@ -145,3 +145,49 @@ class TestMCPCLI:
         result = runner.invoke(cli, ["mcp", "--help"])
         assert result.exit_code == 0
         assert "serve" in result.output
+
+    class TestMCPResources:
+    """Test all MCP resource endpoints (health, summary, chain status)."""
+
+    @pytest.mark.skipif(not _has_fastmcp, reason="fastmcp not installed")
+    def test_mcp_server_resources(self, trail_with_data):
+        import json
+
+        # 1. Initialize the FastMCP server instance
+        server = create_server()
+
+        # 2. Verify provena://health resource
+        health_resource = server._resource_manager.get_resource("provena://health")
+        assert health_resource is not None
+        health_data = json.loads(health_resource.fn())
+        assert health_data["healthy"] is True
+
+        # 3. Verify provena://summary resource (Populated Trail)
+        summary_resource = server._resource_manager.get_resource("provena://summary")
+        assert summary_resource is not None
+        summary_data = json.loads(summary_resource.fn())
+        assert summary_data["total"] == 3
+
+        # 4. Verify provena://chain/status resource (Intact)
+        chain_resource = server._resource_manager.get_resource("provena://chain/status")
+        assert chain_resource is not None
+        chain_data = json.loads(chain_resource.fn())
+        assert chain_data["intact"] is True
+        assert chain_data["total_records"] == 3
+
+    @pytest.mark.skipif(not _has_fastmcp, reason="fastmcp not installed")
+    def test_mcp_resources_empty_trail(self, trail_empty):
+        import json
+
+        server = create_server()
+
+        # Summary with empty trail
+        summary_res = server._resource_manager.get_resource("provena://summary")
+        summary_data = json.loads(summary_res.fn())
+        assert summary_data["total"] == 0
+
+        # Chain status with empty trail
+        chain_res = server._resource_manager.get_resource("provena://chain/status")
+        chain_data = json.loads(chain_res.fn())
+        assert chain_data["intact"] is True
+        assert chain_data["total_records"] == 0
