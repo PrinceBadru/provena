@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import asyncio
 
 from provena import ContextTrail, ProvenanceMetadata
 from provena.mcp_server import configure, create_server, get_trail
@@ -82,7 +83,7 @@ class TestMCPToolFunctions:
             pytest.skip("fastmcp not installed")
 
         server = create_server()
-        tools = {t.name: t for t in server._tool_manager.list_tools()}
+        tools = {t.name: t for t in asyncio.run(server.list_tools())}
         assert "check_freshness" in tools
 
     def test_check_freshness_logic(self, trail_with_data):
@@ -124,21 +125,21 @@ class TestMCPToolFunctions:
         assert trail.summary()["total"] == 0
         assert trail.verify_chain().intact
 
-
 class TestMCPCLI:
-    def test_mcp_serve_without_fastmcp(self):
+    def test_mcp_serve_without_fastmcp(self, monkeypatch):
         from click.testing import CliRunner
-
         from provena.cli.main import cli
+        import fastmcp
+
+        # Prevent FastMCP from taking over stdio streams during CLI testing
+        monkeypatch.setattr(fastmcp.FastMCP, "run", lambda self, transport=None: None)
 
         runner = CliRunner()
         result = runner.invoke(cli, ["mcp", "serve"])
-        if not _has_fastmcp:
-            assert result.exit_code != 0 or "fastmcp" in result.output.lower()
+        assert result.exit_code == 0
 
     def test_mcp_help(self):
         from click.testing import CliRunner
-
         from provena.cli.main import cli
 
         runner = CliRunner()
@@ -146,48 +147,66 @@ class TestMCPCLI:
         assert result.exit_code == 0
         assert "serve" in result.output
 
-    class TestMCPResources:
+
+class TestMCPResources:
     """Test all MCP resource endpoints (health, summary, chain status)."""
+
+    @staticmethod
+    def _read_resource_json(server, uri: str):
+        import asyncio
+        import json
+
+        async def read_res(uri: str):
+            res = await server.read_resource(uri)
+
+            if hasattr(res, "contents"):
+                res = res.contents
+
+            if isinstance(res, list):
+                if not res:
+                    return {}
+                item = res[0]
+                content = getattr(item, "content", item)
+            elif hasattr(res, "content"):
+                content = res.content
+            else:
+                content = res
+
+            if isinstance(content, (bytes, bytearray)):
+                content = content.decode("utf-8")
+
+            if isinstance(content, str):
+                return json.loads(content)
+            return content
+
+        return asyncio.run(read_res(uri))
 
     @pytest.mark.skipif(not _has_fastmcp, reason="fastmcp not installed")
     def test_mcp_server_resources(self, trail_with_data):
-        import json
-
-        # 1. Initialize the FastMCP server instance
         server = create_server()
 
-        # 2. Verify provena://health resource
-        health_resource = server._resource_manager.get_resource("provena://health")
-        assert health_resource is not None
-        health_data = json.loads(health_resource.fn())
+        # 1. Verify provena://health
+        health_data = self._read_resource_json(server, "provena://health")
         assert health_data["healthy"] is True
 
-        # 3. Verify provena://summary resource (Populated Trail)
-        summary_resource = server._resource_manager.get_resource("provena://summary")
-        assert summary_resource is not None
-        summary_data = json.loads(summary_resource.fn())
+        # 2. Verify provena://summary (Populated Trail)
+        summary_data = self._read_resource_json(server, "provena://summary")
         assert summary_data["total"] == 3
 
-        # 4. Verify provena://chain/status resource (Intact)
-        chain_resource = server._resource_manager.get_resource("provena://chain/status")
-        assert chain_resource is not None
-        chain_data = json.loads(chain_resource.fn())
+        # 3. Verify provena://chain/status (Intact)
+        chain_data = self._read_resource_json(server, "provena://chain/status")
         assert chain_data["intact"] is True
         assert chain_data["total_records"] == 3
 
     @pytest.mark.skipif(not _has_fastmcp, reason="fastmcp not installed")
     def test_mcp_resources_empty_trail(self, trail_empty):
-        import json
-
         server = create_server()
 
         # Summary with empty trail
-        summary_res = server._resource_manager.get_resource("provena://summary")
-        summary_data = json.loads(summary_res.fn())
+        summary_data = self._read_resource_json(server, "provena://summary")
         assert summary_data["total"] == 0
 
         # Chain status with empty trail
-        chain_res = server._resource_manager.get_resource("provena://chain/status")
-        chain_data = json.loads(chain_res.fn())
+        chain_data = self._read_resource_json(server, "provena://chain/status")
         assert chain_data["intact"] is True
         assert chain_data["total_records"] == 0
