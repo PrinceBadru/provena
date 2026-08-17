@@ -130,7 +130,6 @@ class TestMCPCLI:
     @pytest.mark.skipif(not _has_fastmcp, reason="fastmcp not installed")
     def test_mcp_serve_with_fastmcp(self, monkeypatch):
         import fastmcp
-        import fastmcp
         from click.testing import CliRunner
 
         from provena.cli.main import cli
