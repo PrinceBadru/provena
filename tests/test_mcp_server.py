@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import asyncio
 
 from provena import ContextTrail, ProvenanceMetadata
 from provena.mcp_server import configure, create_server, get_trail
@@ -125,11 +125,13 @@ class TestMCPToolFunctions:
         assert trail.summary()["total"] == 0
         assert trail.verify_chain().intact
 
+
 class TestMCPCLI:
     def test_mcp_serve_without_fastmcp(self, monkeypatch):
-        from click.testing import CliRunner
-        from provena.cli.main import cli
         import fastmcp
+        from click.testing import CliRunner
+
+        from provena.cli.main import cli
 
         # Prevent FastMCP from taking over stdio streams during CLI testing
         monkeypatch.setattr(fastmcp.FastMCP, "run", lambda self, transport=None: None)
@@ -140,6 +142,7 @@ class TestMCPCLI:
 
     def test_mcp_help(self):
         from click.testing import CliRunner
+
         from provena.cli.main import cli
 
         runner = CliRunner()
