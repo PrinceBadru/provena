@@ -126,10 +126,11 @@ class TestMCPToolFunctions:
         assert trail.verify_chain().intact
 
 class TestMCPCLI:
-    def test_mcp_serve_without_fastmcp(self, monkeypatch):
+    @pytest.mark.skipif(not _has_fastmcp, reason="fastmcp not installed")
+    def test_mcp_serve_with_fastmcp(self, monkeypatch):
+        import fastmcp
         from click.testing import CliRunner
         from provena.cli.main import cli
-        import fastmcp
 
         # Prevent FastMCP from taking over stdio streams during CLI testing
         monkeypatch.setattr(fastmcp.FastMCP, "run", lambda self, transport=None: None)
