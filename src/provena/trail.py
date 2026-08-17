@@ -763,6 +763,7 @@ class ContextTrail:
             count = self._backend.count()
             result: dict[str, Any] = {
                 "status": "healthy",
+                "healthy": True,
                 "record_count": count,
                 "backend": type(self._backend).__name__,
                 "signed": self._hasher.is_signed,
@@ -775,6 +776,7 @@ class ContextTrail:
         except Exception as exc:
             return {
                 "status": "unhealthy",
+                "healthy": False,
                 "error": str(exc),
                 "errors": self._error_count,
             }
