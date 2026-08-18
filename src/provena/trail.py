@@ -587,46 +587,30 @@ class ContextTrail:
             details="Chain intact",
         )
 
-    def query(
-        self,
-        *,
-        source: ContextSource | str | None = None,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        provenance_status: str | None = None,
-        freshness_status: str | None = None,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
-        """Query the audit trail with optional filters.
-
-        Args:
-            source: Filter by context source type.
-            start: Include only records at or after this timestamp.
-            end: Include only records at or before this timestamp.
-            provenance_status: Filter by provenance validation status.
-            freshness_status: Filter by freshness check status.
-            limit: Maximum number of records to return. Must be >= 1.
-
-        Returns:
-            A list of record dictionaries matching the filters.
-
-        Raises:
-            ValueError: If ``limit`` is less than 1. Passing ``limit <= 0``
-                was previously silent and backend-dependent — SQLite treated
-                ``LIMIT -1`` as "no limit" and ``LIMIT 0`` as "no rows", while
-                PostgreSQL rejects a negative ``LIMIT`` outright.
-        """
-        if limit < 1:
-            raise ValueError(f"limit must be >= 1, got {limit}")
-        source_str = source.value if isinstance(source, ContextSource) else source
-        return self._backend.query(
-            source=source_str,
-            start=start,
-            end=end,
-            provenance_status=provenance_status,
-            freshness_status=freshness_status,
-            limit=limit,
-        )
+    # Added offset parameter to truly handle datasets of any size without hard caps
+    def query(  
+    self,
+    *,
+    source: ContextSource | str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    provenance_status: str | None = None,
+    freshness_status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    if limit < 1:
+        raise ValueError(f"limit must be >= 1, got {limit}")
+    source_str = source.value if isinstance(source, ContextSource) else source
+    return self._backend.query(
+        source=source_str,
+        start=start,
+        end=end,
+        provenance_status=provenance_status,
+        freshness_status=freshness_status,
+        limit=limit,
+        offset=offset,
+    )
 
     def annotate(
         self,
