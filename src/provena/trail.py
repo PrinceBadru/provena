@@ -589,28 +589,28 @@ class ContextTrail:
 
     # Added offset parameter to truly handle datasets of any size without hard caps
     def query(  
-    self,
-    *,
-    source: ContextSource | str | None = None,
-    start: datetime | None = None,
-    end: datetime | None = None,
-    provenance_status: str | None = None,
-    freshness_status: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
-) -> list[dict[str, Any]]:
-    if limit < 1:
-        raise ValueError(f"limit must be >= 1, got {limit}")
-    source_str = source.value if isinstance(source, ContextSource) else source
-    return self._backend.query(
-        source=source_str,
-        start=start,
-        end=end,
-        provenance_status=provenance_status,
-        freshness_status=freshness_status,
-        limit=limit,
-        offset=offset,
-    )
+        self,
+        *,
+        source: ContextSource | str | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        provenance_status: str | None = None,
+        freshness_status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        if limit < 1:
+            raise ValueError(f"limit must be >= 1, got {limit}")
+        source_str = source.value if isinstance(source, ContextSource) else source
+        return self._backend.query(
+            source=source_str,
+            start=start,
+            end=end,
+            provenance_status=provenance_status,
+            freshness_status=freshness_status,
+            limit=limit,
+            offset=offset,
+        )
 
     def annotate(
         self,
