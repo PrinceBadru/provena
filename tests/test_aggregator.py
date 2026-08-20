@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
-from provena.aggregator import TrailAggregator, EvidenceGap
-
-import pytest
-
 from provena import ContextTrail, ProvenanceMetadata
 from provena.aggregator import (
     AggregateVerdict,
@@ -370,6 +367,7 @@ class TestMultiAgentWorkflow:
             missing_prov = [g for g in gaps if g.gap_type == "missing_provenance"]
             assert len(missing_prov) >= 1
 
+
 class PaginatedMockTrail:
     """Mock trail simulating a dataset larger than a single batch size."""
 
@@ -378,13 +376,15 @@ class PaginatedMockTrail:
             {"id": i, "source_name": f"stale_source_{i}"} for i in range(stale_count)
         ]
         self.missing_records = [
-            {"id": i, "source_name": f"missing_source_{i}"} for i in range(missing_prov_count)
+            {"id": i, "source_name": f"missing_source_{i}"}
+            for i in range(missing_prov_count)
         ]
 
     def verify_chain(self):
         class Verdict:
             intact = True
             broken_at = None
+
         return Verdict()
 
     def query(
@@ -393,7 +393,7 @@ class PaginatedMockTrail:
         provenance_status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Supports offset-based slicing to simulate paginated backend queries."""
         if limit < 1:
             raise ValueError(f"limit must be >= 1, got {limit}")
@@ -407,7 +407,7 @@ class PaginatedMockTrail:
 
 def test_detect_gaps_paginates_all_records_beyond_1000():
     aggregator = TrailAggregator()
-    
+
     # 2,500 stale records and 1,500 missing provenance records
     mock_trail = PaginatedMockTrail(stale_count=2500, missing_prov_count=1500)
     aggregator._trails["agent_1"] = mock_trail
@@ -432,7 +432,7 @@ def test_detect_gaps_paginates_all_records_beyond_1000():
 def test_context_trail_query_supports_offset():
     """Verify offset slicing behavior directly on query()."""
     mock_trail = PaginatedMockTrail(stale_count=100, missing_prov_count=0)
-    
+
     first_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=0)
     second_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=10)
 
@@ -440,3 +440,4 @@ def test_context_trail_query_supports_offset():
     assert len(second_batch) == 10
     assert first_batch[0]["id"] == 0
     assert second_batch[0]["id"] == 10
+    
