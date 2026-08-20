@@ -587,7 +587,8 @@ class ContextTrail:
             details="Chain intact",
         )
 
-    def query(
+    # Added offset parameter to truly handle datasets of any size without hard caps
+    def query(  
         self,
         *,
         source: ContextSource | str | None = None,
@@ -598,23 +599,6 @@ class ContextTrail:
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        """Query records with optional filters and pagination.
-
-        Args:
-            source: Filter by context source.
-            start: Filter records created at or after this timestamp.
-            end: Filter records created at or before this timestamp.
-            provenance_status: Filter by provenance status (e.g. VALID, MISSING).
-            freshness_status: Filter by freshness status (e.g. FRESH, STALE).
-            limit: Maximum number of records to return (must be >= 1).
-            offset: Number of records to skip for pagination (must be >= 0).
-
-        Returns:
-            A list of matching record dictionaries.
-
-        Raises:
-            ValueError: If limit < 1 or offset < 0.
-        """
         if limit < 1:
             raise ValueError(f"limit must be >= 1, got {limit}")
         if offset < 0:

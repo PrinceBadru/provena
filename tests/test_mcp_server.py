@@ -129,6 +129,7 @@ class TestMCPToolFunctions:
 class TestMCPCLI:
     def test_mcp_serve_without_fastmcp(self, monkeypatch):
         import fastmcp
+        import fastmcp
         from click.testing import CliRunner
 
         from provena.cli.main import cli
