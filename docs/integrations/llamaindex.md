@@ -41,14 +41,14 @@ identical whether Provena is attached or not.
 def _postprocess_nodes(self, nodes, query_bundle=None):
     for node_with_score in nodes:
         node = node_with_score.node
-        content = node.text                               # (1)!
+        content = node.text  # (1)!
         provenance = _extract_llamaindex_provenance(node)  # (2)!
 
         metadata = {}
         if node_with_score.score is not None:
-            metadata["score"] = node_with_score.score      # (3)!
+            metadata["score"] = node_with_score.score  # (3)!
         if query_bundle:
-            metadata["query"] = query_bundle.query_str     # (4)!
+            metadata["query"] = query_bundle.query_str  # (4)!
 
         self.trail.log(
             content=content,
@@ -185,7 +185,7 @@ from llama_index.core.postprocessor import SimilarityPostprocessor
 query_engine = index.as_query_engine(
     node_postprocessors=[
         SimilarityPostprocessor(similarity_cutoff=0.7),  # filter first
-        ProvenaPostprocessor(trail=trail),                # then log
+        ProvenaPostprocessor(trail=trail),  # then log
     ],
 )
 ```

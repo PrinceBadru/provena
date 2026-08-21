@@ -24,6 +24,7 @@ The very first record uses a deterministic **genesis hash** as its predecessor:
 
 ```python
 import hashlib
+
 GENESIS_HASH = hashlib.sha256(b"provena:genesis").hexdigest()
 ```
 
@@ -46,10 +47,10 @@ trail.log(content="Third entry", source="agent:planner")
 
 # Verify the entire chain
 verdict = trail.verify_chain()
-print(verdict.intact)        # True
+print(verdict.intact)  # True
 print(verdict.total_records)  # 3
-print(verdict.broken_at)      # None
-print(verdict.details)        # "Chain intact"
+print(verdict.broken_at)  # None
+print(verdict.details)  # "Chain intact"
 ```
 
 The `ChainVerdict` dataclass returned by `verify_chain()` contains:
@@ -78,7 +79,7 @@ trail = ContextTrail(
 trail.log(content="Signed entry", source="retriever")
 
 verdict = trail.verify_chain()
-print(verdict.intact)   # True
+print(verdict.intact)  # True
 print(trail.is_signed)  # True
 ```
 
@@ -90,6 +91,7 @@ export PROVENA_SIGNING_KEY="my-secret-governance-key"
 
 ```python
 import os
+
 os.environ["PROVENA_SIGNING_KEY"] = "my-secret-governance-key"
 
 trail = ContextTrail(backend="memory")
@@ -128,9 +130,9 @@ records[1]["content_hash"] = "tampered_hash_value"
 
 # Verify after tampering
 verdict = trail.verify_chain()
-print(verdict.intact)        # False
-print(verdict.broken_at)      # 2
-print(verdict.details)        # "Chain broken at record 2"
+print(verdict.intact)  # False
+print(verdict.broken_at)  # 2
+print(verdict.details)  # "Chain broken at record 2"
 ```
 
 The chain breaks at the tampered record because the recomputed hash no longer

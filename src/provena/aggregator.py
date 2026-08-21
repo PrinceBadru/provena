@@ -341,7 +341,7 @@ class TrailAggregator:
                     )
                 )
 
-           # Consume all stale records without capping at 1,000
+            # Consume all stale records without capping at 1,000
             offset = 0
             batch_size = 1000
             while True:

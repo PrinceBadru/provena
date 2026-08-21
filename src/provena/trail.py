@@ -588,7 +588,7 @@ class ContextTrail:
         )
 
     # Added offset parameter to truly handle datasets of any size without hard caps
-    def query(  
+    def query(
         self,
         *,
         source: ContextSource | str | None = None,
@@ -877,4 +877,3 @@ def _load_config_file(path: str | Path) -> dict[str, Any]:
     raise ValueError(
         f"Unsupported config file format: '{suffix}'. Use .toml, .yaml, or .yml"
     )
-    

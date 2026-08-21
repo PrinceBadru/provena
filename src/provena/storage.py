@@ -376,4 +376,3 @@ class InMemoryBackend:
     def close(self) -> None:
         """Close the backend and release resources."""
         pass
-        

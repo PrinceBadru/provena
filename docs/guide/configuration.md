@@ -186,28 +186,30 @@ The `config` dict uses nested sections for organized configuration:
 ```python
 from provena import ContextTrail
 
-trail = ContextTrail(config={
-    "storage": {
-        "backend": "sqlite",
-        "path": "governance/audit.db",
-    },
-    "provenance": {
-        "required_fields": ["source_url", "created_at", "author"],
-    },
-    "freshness": {
-        "max_age_days": 60,
-        "temporal_detection": True,
-    },
-    "hash_chain": {
-        "signing_key": "my-secret-key",
-    },
-    "otel": {
-        "enabled": True,
-        "service_name": "my-agent",
-    },
-    "max_content_bytes": 131072,
-    "strict_mode": True,
-})
+trail = ContextTrail(
+    config={
+        "storage": {
+            "backend": "sqlite",
+            "path": "governance/audit.db",
+        },
+        "provenance": {
+            "required_fields": ["source_url", "created_at", "author"],
+        },
+        "freshness": {
+            "max_age_days": 60,
+            "temporal_detection": True,
+        },
+        "hash_chain": {
+            "signing_key": "my-secret-key",
+        },
+        "otel": {
+            "enabled": True,
+            "service_name": "my-agent",
+        },
+        "max_content_bytes": 131072,
+        "strict_mode": True,
+    }
+)
 ```
 
 ### Config dict reference

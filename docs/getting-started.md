@@ -45,12 +45,14 @@ The `@trail.track()` decorator automatically logs function return values:
 ```python
 trail = ContextTrail(backend="memory")
 
+
 @trail.track(source="retriever")
 def search(query):
     return [
         "Result 1: Pod scheduling uses the kube-scheduler.",
         "Result 2: Services provide stable networking for Pods.",
     ]
+
 
 results = search("kubernetes networking")
 # Both results are now logged as separate audit records
@@ -78,7 +80,7 @@ record = trail.log(
 )
 
 print(f"Provenance: {record.provenance_result.status}")  # VALID
-print(f"Freshness:  {record.freshness_result.status}")   # FRESH
+print(f"Freshness:  {record.freshness_result.status}")  # FRESH
 ```
 
 ## Step 4: Detect Stale Content
@@ -99,7 +101,7 @@ record = trail.log(
         created_at=datetime(2023, 1, 15, tzinfo=timezone.utc),
     ),
 )
-print(f"Freshness: {record.freshness_result.status}")   # STALE
+print(f"Freshness: {record.freshness_result.status}")  # STALE
 print(f"Details:   {record.freshness_result.details}")
 
 # Stale via temporal detection in content
@@ -107,7 +109,7 @@ record = trail.log(
     content="As of January 2023, the API supports 3 endpoints.",
     source="retriever",
 )
-print(f"Freshness: {record.freshness_result.status}")   # STALE
+print(f"Freshness: {record.freshness_result.status}")  # STALE
 ```
 
 Temporal patterns detected include ISO dates (`2023-06-15`), month-year (`January 2024`),
@@ -125,8 +127,8 @@ trail.log("Second context", source="tool")
 trail.log("Third context", source="agent")
 
 verdict = trail.verify_chain()
-print(f"Chain intact: {verdict.intact}")       # True
-print(f"Records:      {verdict.total_records}") # 3
+print(f"Chain intact: {verdict.intact}")  # True
+print(f"Records:      {verdict.total_records}")  # 3
 ```
 
 For HMAC-signed chains (required for compliance):

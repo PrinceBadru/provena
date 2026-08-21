@@ -16,9 +16,11 @@ from provena import ContextTrail
 
 trail = ContextTrail(backend="memory")
 
+
 @trail.track(source="retriever")
 def search_docs(query: str) -> str:
     return "OpenShift 4.16 supports single-node deployments for edge."
+
 
 result = search_docs("edge deployment")
 print(result)  # "OpenShift 4.16 supports single-node deployments for edge."
@@ -41,6 +43,7 @@ def search(query: str) -> list[str]:
         "Single-node deployments are supported for edge.",
     ]
 
+
 results = search("requirements")
 # Two separate records are created in the audit trail
 print(trail.summary()["total"])  # 2
@@ -55,6 +58,7 @@ Dictionary return values are JSON-serialized and logged as a single record.
 def get_weather(city: str) -> dict:
     return {"city": city, "temp_c": 22, "conditions": "partly cloudy"}
 
+
 weather = get_weather("Toronto")
 # Logged as: '{"city": "Toronto", "temp_c": 22, "conditions": "partly cloudy"}'
 ```
@@ -67,11 +71,13 @@ Provena how to extract the loggable content.
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class SearchResult:
     text: str
     score: float
     metadata: dict
+
 
 @trail.track(
     source="retriever",
@@ -83,6 +89,7 @@ def ranked_search(query: str) -> SearchResult:
         score=0.95,
         metadata={"source": "k8s-docs"},
     )
+
 
 result = ranked_search("scheduling")
 # Only result.text is logged to the trail
@@ -110,11 +117,13 @@ configuration is needed.
 ```python
 import asyncio
 
+
 @trail.track(source="tool:api_name")
 async def fetch_data(url: str) -> str:
     # In a real application, use aiohttp or httpx here
     await asyncio.sleep(0.01)
     return "Response payload from external API"
+
 
 result = asyncio.run(fetch_data("https://api.example.com/data"))
 ```
@@ -142,6 +151,7 @@ def read_config(path: str) -> str:
     with open(path) as f:
         return f.read()
 
+
 @trail.track(source="agent:planner")
 def plan_next_step(state: dict) -> str:
     return "Retrieve the latest deployment manifest."
@@ -159,7 +169,8 @@ def maybe_search(query: str) -> str | None:
         return None  # No record logged
     return "Found a relevant document."
 
-maybe_search("")   # Nothing logged
+
+maybe_search("")  # Nothing logged
 maybe_search("k8s")  # One record logged
 ```
 
@@ -172,9 +183,11 @@ and logged.
 ```python
 class Document:
     """Minimal LangChain-compatible document."""
+
     def __init__(self, page_content: str, metadata: dict | None = None):
         self.page_content = page_content
         self.metadata = metadata or {}
+
 
 @trail.track(source="retriever")
 def langchain_retriever(query: str) -> list[Document]:
@@ -184,6 +197,7 @@ def langchain_retriever(query: str) -> list[Document]:
             metadata={"source": "https://k8s.io/docs/pdb"},
         ),
     ]
+
 
 docs = langchain_retriever("availability")
 # Logged content: "Pod disruption budgets protect availability."

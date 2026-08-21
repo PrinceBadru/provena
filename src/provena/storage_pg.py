@@ -283,4 +283,3 @@ def _row_to_dict(cursor: Any, row: tuple[Any, ...]) -> dict[str, Any]:
         if val is not None and not isinstance(val, str):
             d[json_field] = json.dumps(val)
     return d
-    
