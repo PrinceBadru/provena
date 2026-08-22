@@ -366,3 +366,77 @@ class TestMultiAgentWorkflow:
             gaps = agg.detect_gaps()
             missing_prov = [g for g in gaps if g.gap_type == "missing_provenance"]
             assert len(missing_prov) >= 1
+
+
+class PaginatedMockTrail:
+    """Mock trail simulating a dataset larger than a single batch size."""
+
+    def __init__(self, stale_count: int, missing_prov_count: int):
+        self.stale_records = [
+            {"id": i, "source_name": f"stale_source_{i}"} for i in range(stale_count)
+        ]
+        self.missing_records = [
+            {"id": i, "source_name": f"missing_source_{i}"}
+            for i in range(missing_prov_count)
+        ]
+
+    def verify_chain(self):
+        class Verdict:
+            intact = True
+            broken_at = None
+
+        return Verdict()
+
+    def query(
+        self,
+        freshness_status: str | None = None,
+        provenance_status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Supports offset-based slicing to simulate paginated backend queries."""
+        if limit < 1:
+            raise ValueError(f"limit must be >= 1, got {limit}")
+
+        if freshness_status == "STALE":
+            return self.stale_records[offset : offset + limit]
+        if provenance_status == "MISSING":
+            return self.missing_records[offset : offset + limit]
+        return []
+
+
+def test_detect_gaps_paginates_all_records_beyond_1000():
+    aggregator = TrailAggregator()
+
+    # 2,500 stale records and 1,500 missing provenance records
+    mock_trail = PaginatedMockTrail(stale_count=2500, missing_prov_count=1500)
+    aggregator._trails["agent_1"] = mock_trail
+
+    # Execute gap detection
+    gaps = aggregator.detect_gaps()
+
+    # Filter gaps by type
+    stale_gaps = [g for g in gaps if g.gap_type == "stale_context"]
+    missing_gaps = [g for g in gaps if g.gap_type == "missing_provenance"]
+
+    # Assert that all records were fetched across all pages (no 1,000 truncation cap)
+    assert len(stale_gaps) == 2500
+    assert len(missing_gaps) == 1500
+
+    # Verify ID sequence to ensure pagination offsets advanced correctly
+    assert stale_gaps[0].record_id == 0
+    assert stale_gaps[2499].record_id == 2499
+    assert missing_gaps[1499].record_id == 1499
+
+
+def test_context_trail_query_supports_offset():
+    """Verify offset slicing behavior directly on query()."""
+    mock_trail = PaginatedMockTrail(stale_count=100, missing_prov_count=0)
+
+    first_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=0)
+    second_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=10)
+
+    assert len(first_batch) == 10
+    assert len(second_batch) == 10
+    assert first_batch[0]["id"] == 0
+    assert second_batch[0]["id"] == 10

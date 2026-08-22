@@ -14,6 +14,7 @@ Python list.
 ```python
 from provena import ContextTrail
 
+
 def test_basic_logging():
     trail = ContextTrail(backend="memory")
 
@@ -38,6 +39,7 @@ governance. When disabled:
 ```python
 import os
 
+
 def test_with_governance_disabled(monkeypatch):
     monkeypatch.setenv("PROVENA_DISABLED", "1")
 
@@ -61,6 +63,7 @@ closed after each test, even if the test fails:
 ```python
 from provena import ContextTrail, ProvenanceMetadata
 from datetime import datetime, timezone
+
 
 def test_provenance_validation():
     with ContextTrail(backend="memory") as trail:
@@ -91,6 +94,7 @@ non-strict mode (the default), errors are logged and `trail.log()` returns
 import pytest
 from provena import ContextTrail
 
+
 def test_strict_mode_catches_errors():
     trail = ContextTrail(backend="memory", strict_mode=True)
 
@@ -108,6 +112,7 @@ After logging multiple entries, verify that the hash chain is intact:
 
 ```python
 from provena import ContextTrail
+
 
 def test_chain_integrity():
     trail = ContextTrail(backend="memory")
@@ -147,6 +152,7 @@ The `summary()` method returns a dictionary you can assert against:
 ```python
 from provena import ContextTrail, ProvenanceMetadata
 from datetime import datetime, timezone
+
 
 def test_summary_counts():
     trail = ContextTrail(backend="memory")
@@ -196,6 +202,7 @@ conditions are handled:
 ```python
 from provena import ContextTrail
 
+
 def test_error_callback():
     captured_errors = []
 
@@ -241,11 +248,13 @@ A reusable pytest fixture that provides a fresh in-memory trail for each test:
 import pytest
 from provena import ContextTrail
 
+
 @pytest.fixture
 def trail():
     """Provide a fresh in-memory ContextTrail for each test."""
     with ContextTrail(backend="memory", strict_mode=True) as t:
         yield t
+
 
 def test_tracking_decorator(trail):
     @trail.track(source="retriever")
@@ -257,6 +266,7 @@ def test_tracking_decorator(trail):
     assert len(results) == 2
     assert trail.summary()["total"] == 2
     assert trail.verify_chain().intact is True
+
 
 def test_provenance_required(trail):
     record = trail.log(content="No metadata", source="retriever")

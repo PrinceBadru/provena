@@ -341,27 +341,48 @@ class TrailAggregator:
                     )
                 )
 
-            records = trail.query(freshness_status="STALE", limit=1000)
-            for r in records:
-                gaps.append(
-                    EvidenceGap(
-                        trail=label,
-                        gap_type="stale_context",
-                        details=f"Stale content from source '{r.get('source_name', '?')}'",
-                        record_id=r.get("id"),
-                    )
+            # Consume all stale records without capping at 1,000
+            offset = 0
+            batch_size = 1000
+            while True:
+                records = trail.query(
+                    freshness_status="STALE", limit=batch_size, offset=offset
                 )
+                if not records:
+                    break
+                for r in records:
+                    gaps.append(
+                        EvidenceGap(
+                            trail=label,
+                            gap_type="stale_context",
+                            details=f"Stale content from source '{r.get('source_name', '?')}'",
+                            record_id=r.get("id"),
+                        )
+                    )
+                if len(records) < batch_size:
+                    break
+                offset += len(records)
 
-            records = trail.query(provenance_status="MISSING", limit=1000)
-            for r in records:
-                gaps.append(
-                    EvidenceGap(
-                        trail=label,
-                        gap_type="missing_provenance",
-                        details=f"No provenance metadata on '{r.get('source_name', '?')}'",
-                        record_id=r.get("id"),
-                    )
+            # Consume all missing provenance records without capping at 1,000
+            offset = 0
+            while True:
+                records = trail.query(
+                    provenance_status="MISSING", limit=batch_size, offset=offset
                 )
+                if not records:
+                    break
+                for r in records:
+                    gaps.append(
+                        EvidenceGap(
+                            trail=label,
+                            gap_type="missing_provenance",
+                            details=f"No provenance metadata on '{r.get('source_name', '?')}'",
+                            record_id=r.get("id"),
+                        )
+                    )
+                if len(records) < batch_size:
+                    break
+                offset += len(records)
 
         for h in self._handoffs:
             if h.from_trail not in self._trails:

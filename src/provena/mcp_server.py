@@ -10,7 +10,7 @@ from typing import Any
 try:
     from fastmcp import FastMCP
 except ImportError:
-    FastMCP = None
+    FastMCP = None  # type: ignore[assignment]
 
 from provena.trail import ContextTrail
 

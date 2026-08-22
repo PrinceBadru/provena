@@ -21,6 +21,7 @@ from provena import ContextTrail
 
 trail = ContextTrail()
 
+
 @trail.track(source="retriever")
 def search(query):
     return retriever.search(query)

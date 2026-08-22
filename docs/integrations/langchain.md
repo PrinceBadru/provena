@@ -42,7 +42,7 @@ When a retriever returns documents, the callback logs each document's
 ```python
 def on_retriever_end(self, documents, *, run_id, **kwargs):
     for doc in documents:
-        content = doc.page_content      # (1)!
+        content = doc.page_content  # (1)!
         provenance = _extract_langchain_provenance(doc)  # (2)!
         self._trail.log(
             content=content,
@@ -95,7 +95,7 @@ doc = Document(
     metadata={
         "source": "https://docs.example.com/api.html",
         "author": "Engineering Team",
-    }
+    },
 )
 
 # Produces this ProvenanceMetadata:

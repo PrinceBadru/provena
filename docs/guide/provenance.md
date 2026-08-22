@@ -148,6 +148,7 @@ class Document:
         self.page_content = page_content
         self.metadata = metadata
 
+
 @trail.track(source="retriever")
 def retrieve(query: str) -> Document:
     return Document(
@@ -157,6 +158,7 @@ def retrieve(query: str) -> Document:
             "author": "SIG Autoscaling",
         },
     )
+
 
 doc = retrieve("autoscaling")
 ```

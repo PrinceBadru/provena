@@ -77,6 +77,7 @@ class StorageBackend(Protocol):
         provenance_status: str | None = None,
         freshness_status: str | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Query records with optional filters."""
         ...
@@ -215,6 +216,7 @@ class SQLiteBackend:
         provenance_status: str | None = None,
         freshness_status: str | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Query records with optional filters."""
         clauses: list[str] = []
@@ -237,8 +239,8 @@ class SQLiteBackend:
             params.append(freshness_status)
 
         where = " AND ".join(clauses) if clauses else "1=1"
-        sql = f"SELECT * FROM trail WHERE {where} ORDER BY id ASC LIMIT ?"
-        params.append(limit)
+        sql = f"SELECT * FROM trail WHERE {where} ORDER BY id ASC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
 
         with self._lock:
             conn = self._check_open()
@@ -321,6 +323,7 @@ class InMemoryBackend:
         provenance_status: str | None = None,
         freshness_status: str | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Query records with optional filters."""
         with self._lock:
@@ -345,7 +348,7 @@ class InMemoryBackend:
                 for r in results
                 if r.get("freshness_status", "UNKNOWN") == freshness_status
             ]
-        return [{**r} for r in results[:limit]]
+        return [{**r} for r in results[offset : offset + limit]]
 
     def add_annotation(
         self, record_id: int, note: str, reviewer: str, timestamp: str

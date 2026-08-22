@@ -205,6 +205,7 @@ class PostgreSQLBackend:
         provenance_status: str | None = None,
         freshness_status: str | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         self._check_open()
         clauses: list[str] = []
@@ -227,8 +228,8 @@ class PostgreSQLBackend:
             params.append(freshness_status)
 
         where = " AND ".join(clauses) if clauses else "TRUE"
-        sql = f"SELECT * FROM trail WHERE {where} ORDER BY id ASC LIMIT %s"
-        params.append(limit)
+        sql = f"SELECT * FROM trail WHERE {where} ORDER BY id ASC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
 
         with self._pool.connection() as conn, conn.cursor() as cur:
             cur.execute(sql, params)
