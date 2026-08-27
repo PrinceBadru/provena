@@ -778,7 +778,7 @@ class TestDisabledMode:
         finally:
             trail_module._DISABLED = original
 
-            class TestContextTrailBufferedReads:
+class TestContextTrailBufferedReads:
     def test_record_count_with_unflushed_buffer(self, trail_with_buffer):
         trail_with_buffer.log("buffered entry", source="retriever")
         assert trail_with_buffer.record_count == trail_with_buffer._backend.count() + 1

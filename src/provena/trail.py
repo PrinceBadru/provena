@@ -644,9 +644,9 @@ class ContextTrail:
 
     @property
     def record_count(self) -> int:
-    """Returns total count including unflushed buffered records."""
-    buffered_len = len(self._buffer) if self._buffer else 0
-    return self._backend.count() + buffered_len
+        """Returns total count including unflushed buffered records."""
+        buffered_len = self._buffer.pending if self._buffer else 0
+        return self._backend.count() + buffered_len
 
     @property
     def last_record(self) -> dict[str, Any] | None:
@@ -654,21 +654,83 @@ class ContextTrail:
         return self._backend.get_last()
 
     def summary(self) -> dict[str, Any]:
-    """Returns summary based on a combined view without forcing an I/O flush."""
-    records = self._backend.all_records()
-    if self._buffer:
-        # Append in-memory buffered records to the snapshot
-        records = records + list(self._buffer)
-    
-    # Calculate summary metrics using the combined 'records' list
-    return self._build_summary(records)
+        """Returns summary based on a combined view without forcing an I/O flush."""
+        records = self._backend.all_records()
+        if self._buffer:
+            # Append in-memory buffered records to the snapshot
+            records = records + self._buffer.pending_records
+
+        total = len(records)
+        if total == 0:
+            return {
+                "total": 0,
+                "provenance": {},
+                "freshness": {},
+                "sources": {},
+                "signed": self._hasher.is_signed,
+            }
+
+        prov_counts: dict[str, int] = {}
+        fresh_counts: dict[str, int] = {}
+        source_counts: dict[str, int] = {}
+        for record in records:
+            status = record.get("provenance_status", "MISSING")
+            prov_counts[status] = prov_counts.get(status, 0) + 1
+            freshness = record.get("freshness_status", "UNKNOWN")
+            fresh_counts[freshness] = fresh_counts.get(freshness, 0) + 1
+            source = record.get("source", "unknown")
+            source_counts[source] = source_counts.get(source, 0) + 1
+
+        return {
+            "total": total,
+            "provenance": prov_counts,
+            "freshness": fresh_counts,
+            "sources": source_counts,
+            "signed": self._hasher.is_signed,
+        }
 
     def export(self, format: str = "json") -> str:
-    """Flushes buffer to guarantee persistence before exporting for compliance."""
-    if self._buffer:
-        self._buffer.flush()
-    records = self._backend.all_records()
-    return self._format_export(records, format)
+        """Flush buffered records and export all trail records."""
+        if self._buffer:
+            self._buffer.flush()
+        records = self._backend.all_records()
+
+        if format == "json_with_annotations":
+            annotations: dict[str, list[dict[str, Any]]] = {}
+            for record in records:
+                record_id = record["id"]
+                anns = self._backend.get_annotations(record_id)
+                if anns:
+                    annotations[str(record_id)] = anns
+            payload: dict[str, Any] = {"records": records}
+            if annotations:
+                payload["annotations"] = annotations
+            return json.dumps(payload, indent=2, default=str)
+
+        if format == "json":
+            return json.dumps(records, indent=2, default=str)
+
+        if format == "csv":
+            output = io.StringIO()
+            fieldnames = [
+                "id",
+                "timestamp",
+                "source",
+                "source_name",
+                "content_hash",
+                "provenance_status",
+                "freshness_status",
+                "chain_hash",
+            ]
+            writer = csv.writer(output)
+            writer.writerow(fieldnames)
+            for record in records:
+                writer.writerow([record.get(field, "") for field in fieldnames])
+            return output.getvalue()
+
+        raise ValueError(
+            f"Unsupported export format {format}. Use 'json', 'csv', or 'json_with_annotations'"
+        )
 
     def health(self) -> dict[str, Any]:
         """Return a health-check dictionary for the trail.
