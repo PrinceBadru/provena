@@ -126,6 +126,11 @@ class FreshnessChecker:
             A FreshnessResult with status FRESH, STALE, or UNKNOWN.
         """
         reference = now or datetime.now(timezone.utc)
+        # Normalize a caller-supplied naive `now` to UTC-aware, matching how
+        # created_at is normalized below. Without this, subtracting a naive
+        # `now` from an aware created_at raises an opaque TypeError.
+        if reference.tzinfo is None:
+            reference = reference.replace(tzinfo=timezone.utc)
 
         result = self._check_metadata(entry, reference)
         if result is not None:
