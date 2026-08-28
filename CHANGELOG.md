@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- **`InMemoryBackend.get()` and `get_last()` now hold the backend lock** when reading `_records`, matching every other method on the backend and closing a TOCTOU race that could raise `IndexError` under concurrent `append()` (#145)
 - **`FreshnessChecker.check()` accepts a naive `now` override**, normalizing it to UTC-aware like `created_at`, instead of raising `TypeError: can't subtract offset-naive and offset-aware datetimes` (#147)
 - **`provena[all]` now installs what the README says it does** — the extra
   resolved to only `yaml,cli,otel`, silently omitting the `postgres`, `mcp` and

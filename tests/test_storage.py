@@ -157,6 +157,32 @@ class TestInMemoryBackend:
         assert id2 == 2
         assert id3 == 3
 
+    def test_get_and_get_last_hold_lock(self, memory_backend):
+        # Regression for #145: get() and get_last() previously read
+        # self._records without acquiring self._lock, unlike every other
+        # method on the backend (TOCTOU race under concurrent append).
+        # Wrap the real lock and assert both methods enter it exactly once.
+        memory_backend.append(_make_record())
+        real_lock = memory_backend._lock
+
+        class _TrackingLock:
+            def __init__(self) -> None:
+                self.enters = 0
+
+            def __enter__(self):
+                self.enters += 1
+                return real_lock.__enter__()
+
+            def __exit__(self, *exc):
+                return real_lock.__exit__(*exc)
+
+        tracker = _TrackingLock()
+        memory_backend._lock = tracker
+
+        assert memory_backend.get(1) is not None
+        assert memory_backend.get_last() is not None
+        assert tracker.enters == 2
+
 
 class TestSQLiteBackend:
     def test_append_and_get(self, sqlite_backend):
