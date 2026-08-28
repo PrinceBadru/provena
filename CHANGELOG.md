@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- **`provena mcp serve` now closes the trail on exit** — the server call is wrapped in `try/finally`, so the SQLite handle/WAL is checkpointed and the final buffer flush runs even if `configure()`/`create_server()` raise or `server.run()` returns (#148)
+- **`verify_chain()` returns `ChainVerdict(intact=False)` for a `None`/malformed `chain_hash`** instead of raising `TypeError` out of `hmac.compare_digest`, so corrupted or hand-edited records are reported as broken links rather than crashing the audit path (#146)
 - **`InMemoryBackend.get()` and `get_last()` now hold the backend lock** when reading `_records`, matching every other method on the backend and closing a TOCTOU race that could raise `IndexError` under concurrent `append()` (#145)
 - **`FreshnessChecker.check()` accepts a naive `now` override**, normalizing it to UTC-aware like `created_at`, instead of raising `TypeError: can't subtract offset-naive and offset-aware datetimes` (#147)
 - **`provena[all]` now installs what the README says it does** — the extra

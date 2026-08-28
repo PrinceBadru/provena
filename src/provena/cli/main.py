@@ -399,10 +399,12 @@ def serve(ctx: click.Context, db: str | None, transport: str) -> None:
     signing_key = ctx.parent.parent.obj.get("signing_key")  # type: ignore[union-attr]
 
     trail = ContextTrail(storage_path=db_path, signing_key=signing_key)
-    configure(trail)
-
-    server = create_server()
-    server.run(transport=transport)
+    try:
+        configure(trail)
+        server = create_server()
+        server.run(transport=transport)
+    finally:
+        trail.close()
 
 
 @cli.command()

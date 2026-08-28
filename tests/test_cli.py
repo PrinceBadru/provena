@@ -745,3 +745,44 @@ class TestCLIStats:
             assert len(lines) == 1
         finally:
             os.unlink(db_path)
+
+
+class TestCLIMcpServe:
+    """Regression tests for #148: `mcp serve` must close the trail even when
+    configure()/create_server()/server.run() raise, and on normal shutdown."""
+
+    def _patch(self, monkeypatch, run_side_effect=None):
+        import provena.cli.main as main_mod
+        import provena.mcp_server as mcp_mod
+
+        closed = {"count": 0}
+
+        class _FakeTrail:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def close(self):
+                closed["count"] += 1
+
+        class _FakeServer:
+            def run(self, transport="stdio"):
+                if run_side_effect is not None:
+                    raise run_side_effect
+
+        monkeypatch.setattr(main_mod, "ContextTrail", _FakeTrail)
+        monkeypatch.setattr(mcp_mod, "configure", lambda trail: None)
+        monkeypatch.setattr(mcp_mod, "create_server", lambda: _FakeServer())
+        return closed
+
+    def test_serve_closes_trail_on_normal_return(self, monkeypatch):
+        closed = self._patch(monkeypatch)
+        result = CliRunner().invoke(cli, ["mcp", "serve"])
+        assert result.exit_code == 0
+        assert closed["count"] == 1
+
+    def test_serve_closes_trail_on_exception(self, monkeypatch):
+        closed = self._patch(monkeypatch, run_side_effect=RuntimeError("boom"))
+        result = CliRunner().invoke(cli, ["mcp", "serve"])
+        assert result.exit_code != 0
+        assert isinstance(result.exception, RuntimeError)
+        assert closed["count"] == 1

@@ -115,6 +115,20 @@ class TestContextTrailVerify:
         finally:
             os.unlink(db_path)
 
+    def test_verify_null_chain_hash_returns_verdict(self, memory_trail):
+        # Regression for #146: a None/malformed chain_hash must be reported
+        # as a broken link via ChainVerdict, not raise TypeError out of
+        # hmac.compare_digest (which requires both args to be str).
+        for i in range(3):
+            memory_trail.log(f"entry_{i}", source="retriever")
+        memory_trail._backend._records[1]["chain_hash"] = None
+
+        verdict = memory_trail.verify_chain()
+        assert not verdict.intact
+        assert verdict.broken_at == 2
+        assert verdict.total_records == 3
+        assert "chain_hash" in verdict.details
+
     def test_verify_signed_chain_rejects_wrong_key(self):
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name

@@ -609,14 +609,22 @@ class ContextTrail:
                 source=record["source"],
                 timestamp=record["timestamp"],
             )
-            if not hmac.compare_digest(expected, record["chain_hash"]):
+            stored_hash = record.get("chain_hash")
+            if not isinstance(stored_hash, str) or not hmac.compare_digest(
+                expected, stored_hash
+            ):
                 return ChainVerdict(
                     intact=False,
                     total_records=len(records),
                     broken_at=record["id"],
-                    details=f"Chain broken at record {record['id']}",
+                    details=(
+                        f"Chain broken at record {record['id']} — "
+                        f"chain_hash is {stored_hash!r}"
+                        if not isinstance(stored_hash, str)
+                        else f"Chain broken at record {record['id']}"
+                    ),
                 )
-            previous_hash = record["chain_hash"]
+            previous_hash = stored_hash
 
         return ChainVerdict(
             intact=True,
