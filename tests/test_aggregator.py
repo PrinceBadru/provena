@@ -158,6 +158,10 @@ class TestAggregatedQuery:
         assert len(records) == 2
         assert all(r["_trail"] == "planner" for r in records)
 
+    def test_query_by_unknown_trail_label(self, populated_aggregator):
+        records = populated_aggregator.query(trail_label="nonexistent_agent")
+        assert len(records) == 0
+
     def test_query_by_source(self, populated_aggregator):
         records = populated_aggregator.query(source="tool")
         assert len(records) >= 2
@@ -431,7 +435,7 @@ def test_detect_gaps_paginates_all_records_beyond_1000():
 
 def test_context_trail_query_supports_offset():
     """Verify offset slicing behavior directly on query()."""
-    mock_trail = ContextTrail(stale_count=100, missing_prov_count=0)
+    mock_trail = PaginatedMockTrail(stale_count=100, missing_prov_count=0)
 
     first_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=0)
     second_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=10)

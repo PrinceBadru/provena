@@ -75,6 +75,20 @@ class TestFreshnessCheckerMetadata:
         result = checker.check(entry, now=now)
         assert result.status == "FRESH"
 
+    def test_naive_now_override_treated_as_utc(self):
+        # Regression for #147: passing a naive `now` override previously
+        # raised "can't subtract offset-naive and offset-aware datetimes"
+        # because created_at is normalized to UTC-aware internally. A naive
+        # `now` must be normalized the same way instead of crashing.
+        aware_created = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        naive_now = datetime(2025, 1, 11)  # 10 days later, no tzinfo
+        checker = FreshnessChecker(max_age_days=90)
+        entry = _entry(created_at=aware_created)
+
+        result = checker.check(entry, now=naive_now)
+        assert result.status == "FRESH"
+        assert "10 days" in result.details
+
     def test_no_provenance_returns_unknown(self):
         checker = FreshnessChecker(max_age_days=90)
         entry = _entry()

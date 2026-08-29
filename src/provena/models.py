@@ -21,6 +21,17 @@ class ContextSource(str, Enum):
     CUSTOM = "custom"
 
 
+def parse_isoformat(dt_str: str) -> datetime:
+    """Parse an ISO 8601 formatted datetime string.
+
+    Handles the 'Z' suffix for UTC which is not supported by datetime.fromisoformat
+    in Python 3.10.
+    """
+    if dt_str.endswith("Z"):
+        dt_str = dt_str[:-1] + "+00:00"
+    return datetime.fromisoformat(dt_str)
+
+
 @dataclass(frozen=True, slots=True)
 class ProvenanceMetadata:
     """Immutable metadata about the origin and authorship of a context input.
@@ -38,6 +49,11 @@ class ProvenanceMetadata:
     created_at: datetime | None = None
     version: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        url = self.source_url or "unknown"
+        created = self.created_at.date().isoformat() if self.created_at else "unknown"
+        return f"ProvenanceMetadata(url={url}, created_at={created})"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize non-None fields to a plain dictionary."""
@@ -59,7 +75,7 @@ class ProvenanceMetadata:
         """Reconstruct a ProvenanceMetadata instance from a dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at)
+            created_at = parse_isoformat(created_at)
         return cls(
             source_url=data.get("source_url"),
             author=data.get("author"),
@@ -133,6 +149,12 @@ class ContextEntry:
     metadata: dict[str, Any] = field(default_factory=dict)
     content_type: str = "str"
     truncated: bool = False
+
+    def __repr__(self) -> str:
+        return (
+            f"ContextEntry(source={self.source.value}, "
+            f"hash={self.content_hash[:8]}..., truncated={self.truncated})"
+        )
 
     @classmethod
     def create(
@@ -212,6 +234,13 @@ class TrailRecord:
     chain_hash: str
     previous_hash: str
     config_hash: str = ""
+
+    def __repr__(self) -> str:
+        source = self.entry.source.value
+        provenance = (
+            self.provenance_result.status if self.provenance_result else "UNCHECKED"
+        )
+        return f"TrailRecord(id={self.id}, source={source}, provenance={provenance})"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize this record to a plain dictionary."""

@@ -17,13 +17,14 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from provena.exporters.otel import OTelExporter
-from provena.hasher import GENESIS_HASH, ChainHasher
+from provena.hasher import GENESIS_HASH, ChainHasher, content_hash
 from provena.models import (
     ChainVerdict,
     ContextEntry,
     ContextSource,
     ProvenanceMetadata,
     TrailRecord,
+    parse_isoformat,
 )
 from provena.policy import (
     EnforcementLevel,
@@ -162,6 +163,7 @@ class ContextTrail:
 
         last = self._backend.get_last()
         self._previous_hash: str = last["chain_hash"] if last else GENESIS_HASH
+        self._config_hash = self._compute_config_hash(temporal_detection)
 
     def _apply_config(self, config: dict[str, Any]) -> None:
         storage = config.get("storage", {})
@@ -193,9 +195,10 @@ class ContextTrail:
         self._validator = ProvenanceValidator(
             required_fields=provenance.get("required_fields")
         )
+        temporal_detection = freshness.get("temporal_detection", True)
         self._freshness = FreshnessChecker(
             max_age_days=max_age,
-            temporal_detection=freshness.get("temporal_detection", True),
+            temporal_detection=temporal_detection,
         )
         self._otel = OTelExporter(
             enabled=otel.get("enabled", False),
@@ -233,6 +236,7 @@ class ContextTrail:
 
         last = self._backend.get_last()
         self._previous_hash = str(last["chain_hash"]) if last else GENESIS_HASH
+        self._config_hash = self._compute_config_hash(temporal_detection)
 
     def _update_signing_policies(self) -> None:
         from provena.policy import require_signing
@@ -249,6 +253,37 @@ class ContextTrail:
             else:
                 updated.append(policy)
         self._policy_engine = PolicyEngine(list(updated))
+
+    def _compute_config_hash(self, temporal_detection: bool) -> str:
+        """Hash the governance settings in effect for this trail.
+
+        Recorded on every entry so a reviewer can tell whether governance
+        settings changed partway through a trail. Settings are read back from
+        the constructed validators rather than from the raw arguments, so a
+        trail configured with the default required fields explicitly hashes
+        the same as one that left them unset. ``temporal_detection`` is passed
+        in because ``FreshnessChecker`` does not expose it.
+
+        Only stable policy identity is included — the name and enforcement
+        level. The ``Policy.check`` callable is deliberately excluded, since
+        its repr embeds a memory address and would change the hash on every
+        process.
+
+        Args:
+            temporal_detection: Whether regex temporal detection is enabled.
+
+        Returns:
+            A SHA-256 hex digest of the active governance configuration.
+        """
+        payload = {
+            "required_fields": sorted(self._validator.required_fields),
+            "max_age_days": self._freshness.max_age_days,
+            "temporal_detection": temporal_detection,
+            "policies": sorted(
+                [p.name, p.enforcement.value] for p in self._policy_engine.policies
+            ),
+        }
+        return content_hash(json.dumps(payload, sort_keys=True).encode("utf-8"))
 
     @property
     def error_count(self) -> int:
@@ -343,6 +378,7 @@ class ContextTrail:
                 "freshness_status": fresh_result.status,
                 "chain_hash": chain_hash,
                 "previous_hash": prev_hash,
+                "config_hash": self._config_hash,
                 "metadata_json": json.dumps(entry.metadata),
                 "content_type": entry.content_type,
                 "truncated": entry.truncated,
@@ -362,6 +398,7 @@ class ContextTrail:
             freshness_result=fresh_result,
             chain_hash=chain_hash,
             previous_hash=prev_hash,
+            config_hash=self._config_hash,
         )
 
         self._emit_otel(trail_record)
@@ -538,7 +575,7 @@ class ContextTrail:
             )
             if isinstance(created_at, str):
                 try:
-                    created_at = datetime.fromisoformat(created_at)
+                    created_at = parse_isoformat(created_at)
                 except ValueError:
                     created_at = None
             elif not isinstance(created_at, datetime):
@@ -572,14 +609,22 @@ class ContextTrail:
                 source=record["source"],
                 timestamp=record["timestamp"],
             )
-            if not hmac.compare_digest(expected, record["chain_hash"]):
+            stored_hash = record.get("chain_hash")
+            if not isinstance(stored_hash, str) or not hmac.compare_digest(
+                expected, stored_hash
+            ):
                 return ChainVerdict(
                     intact=False,
                     total_records=len(records),
                     broken_at=record["id"],
-                    details=f"Chain broken at record {record['id']}",
+                    details=(
+                        f"Chain broken at record {record['id']} — "
+                        f"chain_hash is {stored_hash!r}"
+                        if not isinstance(stored_hash, str)
+                        else f"Chain broken at record {record['id']}"
+                    ),
                 )
-            previous_hash = record["chain_hash"]
+            previous_hash = stored_hash
 
         return ChainVerdict(
             intact=True,
@@ -587,6 +632,7 @@ class ContextTrail:
             details="Chain intact",
         )
 
+    # Added offset parameter to truly handle datasets of any size without hard caps
     def query(
         self,
         *,
@@ -598,25 +644,6 @@ class ContextTrail:
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-                """Query the audit trail with optional filters.
-
-        Args:
-            source: Filter by context source type.
-            start: Include only records at or after this timestamp.
-            end: Include only records at or before this timestamp.
-            provenance_status: Filter by provenance validation status.
-            freshness_status: Filter by freshness check status.
-            limit: Maximum number of records to return. Must be >= 1.
-
-        Returns:
-            A list of record dictionaries matching the filters.
-
-        Raises:
-            ValueError: If ``limit`` is less than 1. Passing ``limit <= 0``
-                was previously silent and backend-dependent — SQLite treated
-                ``LIMIT -1`` as "no limit" and ``LIMIT 0`` as "no rows", while
-                PostgreSQL rejects a negative ``LIMIT`` outright.
-        """
         if limit < 1:
             raise ValueError(f"limit must be >= 1, got {limit}")
         if offset < 0:

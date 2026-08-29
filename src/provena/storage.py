@@ -298,13 +298,15 @@ class InMemoryBackend:
 
     def get(self, record_id: int) -> dict[str, Any] | None:
         """Retrieve a record by ID, or None if not found."""
-        if 1 <= record_id <= len(self._records):
-            return {**self._records[record_id - 1]}
-        return None
+        with self._lock:
+            if 1 <= record_id <= len(self._records):
+                return {**self._records[record_id - 1]}
+            return None
 
     def get_last(self) -> dict[str, Any] | None:
         """Retrieve the most recently appended record, or None."""
-        return {**self._records[-1]} if self._records else None
+        with self._lock:
+            return {**self._records[-1]} if self._records else None
 
     def count(self) -> int:
         """Return the total number of records."""
