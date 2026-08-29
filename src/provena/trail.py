@@ -587,7 +587,6 @@ class ContextTrail:
             details="Chain intact",
         )
 
-    # Added offset parameter to truly handle datasets of any size without hard caps
     def query(
         self,
         *,
@@ -599,6 +598,25 @@ class ContextTrail:
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+                """Query the audit trail with optional filters.
+
+        Args:
+            source: Filter by context source type.
+            start: Include only records at or after this timestamp.
+            end: Include only records at or before this timestamp.
+            provenance_status: Filter by provenance validation status.
+            freshness_status: Filter by freshness check status.
+            limit: Maximum number of records to return. Must be >= 1.
+
+        Returns:
+            A list of record dictionaries matching the filters.
+
+        Raises:
+            ValueError: If ``limit`` is less than 1. Passing ``limit <= 0``
+                was previously silent and backend-dependent — SQLite treated
+                ``LIMIT -1`` as "no limit" and ``LIMIT 0`` as "no rows", while
+                PostgreSQL rejects a negative ``LIMIT`` outright.
+        """
         if limit < 1:
             raise ValueError(f"limit must be >= 1, got {limit}")
         if offset < 0:
@@ -635,6 +653,12 @@ class ContextTrail:
         return self._backend.add_annotation(record_id, note, reviewer, ts)
 
     def get_annotations(self, record_id: int) -> list[dict[str, Any]]:
+        """Return all annotations for ``record_id`` in insertion order.
+
+        Returns:
+            A dictionary with total count, provenance/freshness/source
+            breakdowns, and signing status.
+        """
         """Return all annotations for ``record_id`` in insertion order.
 
         Returns an empty list if the record does not exist or has no
@@ -690,6 +714,14 @@ class ContextTrail:
         }
 
     def export(self, format: str = "json") -> str:
+        """Export all trail records in the specified format.
+
+        Args:
+            format: Output format, either ``"json"`` or ``"csv"`` or ``"json_with_annotations"``.
+
+        Returns:
+            The serialized trail data as a string.
+        """
         """Flush buffered records and export all trail records."""
         if self._buffer:
             self._buffer.flush()
