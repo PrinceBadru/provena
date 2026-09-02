@@ -11,11 +11,13 @@ from provena.trail import ContextTrail, _is_pg_url
 
 
 def _positive_int(ctx: click.Context, param: click.Parameter, value: int) -> int:
-    """Reject non-positive --limit values with a clean Click error.
+    """Reject non-positive integer option values with a clean Click error.
 
-    ``ContextTrail.query`` raises ``ValueError`` for ``limit < 1``; validating
-    here turns that into the standard "Invalid value" message instead of an
-    unhandled traceback.
+    Used by ``--limit`` and ``--batch-size``. ``ContextTrail.query`` raises
+    ``ValueError`` for ``limit < 1``, and a non-positive ``batch_size`` makes
+    ``migrate`` either crash or silently copy nothing; validating here turns
+    both into the standard "Invalid value" message instead of an unhandled
+    traceback.
     """
     if value < 1:
         raise click.BadParameter("must be >= 1")
@@ -82,6 +84,18 @@ def _open_trail(ctx: click.Context) -> tuple[ContextTrail, str]:
 @cli.command()
 @click.option("--source", "-s", default=None, help="Filter by source type.")
 @click.option(
+    "--provenance-status",
+    default=None,
+    type=click.Choice(["VALID", "MISSING", "INCOMPLETE"], case_sensitive=False),
+    help="Filter by provenance validation status.",
+)
+@click.option(
+    "--freshness-status",
+    default=None,
+    type=click.Choice(["FRESH", "STALE", "UNKNOWN"], case_sensitive=False),
+    help="Filter by freshness check status.",
+)
+@click.option(
     "--limit",
     "-n",
     default=20,
@@ -114,6 +128,8 @@ def _open_trail(ctx: click.Context) -> tuple[ContextTrail, str]:
 def audit(
     ctx: click.Context,
     source: str | None,
+    provenance_status: str | None,
+    freshness_status: str | None,
     limit: int,
     start: datetime | None,
     end: datetime | None,
@@ -122,7 +138,14 @@ def audit(
     """Query the context governance audit log."""
     trail, _ = _open_trail(ctx)
     try:
-        records = trail.query(source=source, limit=limit, start=start, end=end)
+        records = trail.query(
+            source=source,
+            provenance_status=provenance_status,
+            freshness_status=freshness_status,
+            limit=limit,
+            start=start,
+            end=end,
+        )
 
         if not records:
             click.echo("No records found.")
@@ -230,6 +253,37 @@ def report(ctx: click.Context, fmt: str, output: str | None) -> None:
 
 @cli.command()
 @click.option(
+    "--format",
+    "fmt",
+    default="json",
+    type=click.Choice(["json", "csv", "json_with_annotations"]),
+    help="Export format.",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    type=click.Path(),
+    help="Write to file instead of stdout.",
+)
+@click.pass_context
+def export(ctx: click.Context, fmt: str, output: str | None) -> None:
+    """Export raw audit trail records."""
+    trail, _ = _open_trail(ctx)
+    try:
+        content = trail.export(format=fmt)
+        if output:
+            with open(output, "w") as file:
+                file.write(content)
+            click.echo(f"Exported to {output}")
+        else:
+            click.echo(content)
+    finally:
+        trail.close()
+
+
+@cli.command()
+@click.option(
     "--max-age", default=365, type=int, help="Delete records older than this many days."
 )
 @click.option(
@@ -276,12 +330,13 @@ def retain(
 
 
 @cli.command()
+@click.option("--source", "-s", default=None, help="Filter by source type.")
 @click.pass_context
-def summary(ctx: click.Context) -> None:
+def summary(ctx: click.Context, source: str | None) -> None:
     """Show a quick summary of the audit trail."""
     trail, _ = _open_trail(ctx)
     try:
-        s = trail.summary()
+        s = _summarize_source(trail, source) if source else trail.summary()
         h = trail.health()
 
         click.echo(f"Records:    {s['total']}")
@@ -344,10 +399,12 @@ def serve(ctx: click.Context, db: str | None, transport: str) -> None:
     signing_key = ctx.parent.parent.obj.get("signing_key")  # type: ignore[union-attr]
 
     trail = ContextTrail(storage_path=db_path, signing_key=signing_key)
-    configure(trail)
-
-    server = create_server()
-    server.run(transport=transport)
+    try:
+        configure(trail)
+        server = create_server()
+        server.run(transport=transport)
+    finally:
+        trail.close()
 
 
 @cli.command()
@@ -367,7 +424,8 @@ def serve(ctx: click.Context, db: str | None, transport: str) -> None:
     "--batch-size",
     default=500,
     type=int,
-    help="Number of records per batch.",
+    callback=_positive_int,
+    help="Number of records per batch (must be >= 1).",
 )
 @click.pass_context
 def migrate(
@@ -426,6 +484,54 @@ def migrate(
     finally:
         src.close()
         dst.close()
+
+
+def _summarize_source(trail: ContextTrail, source: str) -> dict[str, Any]:
+    """Build a ``trail.summary()``-shaped dict for a single source.
+
+    ``ContextTrail.summary()`` aggregates the whole trail and takes no source
+    filter, so the records are pulled through ``query()`` instead. That call
+    caps at 100 rows by default, so it is paged the same way
+    ``TrailAggregator.detect_gaps()`` pages — otherwise the counts would stop
+    at the first page and silently under-report.
+
+    Args:
+        trail: The open trail to summarize.
+        source: Source type to restrict the summary to.
+
+    Returns:
+        A dict with the same keys as ``ContextTrail.summary()``.
+    """
+    prov_counts: dict[str, int] = {}
+    fresh_counts: dict[str, int] = {}
+    source_counts: dict[str, int] = {}
+    total = 0
+
+    offset = 0
+    batch_size = 1000
+    while True:
+        records = trail.query(source=source, limit=batch_size, offset=offset)
+        if not records:
+            break
+        for r in records:
+            total += 1
+            status = r.get("provenance_status", "MISSING")
+            prov_counts[status] = prov_counts.get(status, 0) + 1
+            fstatus = r.get("freshness_status", "UNKNOWN")
+            fresh_counts[fstatus] = fresh_counts.get(fstatus, 0) + 1
+            src = r.get("source", "unknown")
+            source_counts[src] = source_counts.get(src, 0) + 1
+        if len(records) < batch_size:
+            break
+        offset += len(records)
+
+    return {
+        "total": total,
+        "provenance": prov_counts,
+        "freshness": fresh_counts,
+        "sources": source_counts,
+        "signed": trail.is_signed,
+    }
 
 
 def _open_backend(path: str) -> Any:
@@ -537,3 +643,26 @@ def _format_text_report(data: dict[str, Any]) -> str:
 
     lines.append("=" * 50)
     return "\n".join(lines)
+
+
+@cli.command()
+@click.pass_context
+def stats(ctx: click.Context) -> None:
+    """Print a one-line governance status summary."""
+    trail, _ = _open_trail(ctx)
+    try:
+        summary = trail.summary()
+        verdict = trail.verify_chain()
+        prov = " ".join(
+            f"{k}: {val}" for k, val in sorted(summary.get("provenance", {}).items())
+        )
+        fresh = " ".join(
+            f"{k}: {val}" for k, val in sorted(summary.get("freshness", {}).items())
+        )
+        chain = "INTACT" if verdict.intact else f"BROKEN@{verdict.broken_at}"
+        signed = "yes" if summary.get("signed") else "no"
+        click.echo(
+            f"{summary['total']} records | {prov} | {fresh} | chain: {chain} | signed: {signed}"
+        )
+    finally:
+        trail.close()

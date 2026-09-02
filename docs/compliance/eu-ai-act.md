@@ -248,15 +248,23 @@ applies to your obligations is essential for risk assessment.
 
 ---
 
-## Enforcement Case Studies
+## Illustrative Scenarios
 
-!!! warning "These cases illustrate the real-world consequences of inadequate context governance"
+!!! note "Hypothetical scenarios, not documented enforcement actions"
+    The two scenarios below are illustrative constructs, not reports of specific,
+    verified regulatory actions. We built them from the penalty tiers and
+    obligations set out in the Act itself and from the failure patterns commonly
+    reported in RAG/agent post-mortems (stale sources, missing provenance,
+    unreconstructable decision trails). No named company, fine amount, or
+    regulator decision described here should be treated as an actual case record.
+    They exist to show concretely what an Article 10/12/13/14/26 gap looks like
+    in practice and how Provena's mechanisms map onto it.
 
-### Case 1: Frankfurt Wealth Management Firm (2027)
+### Scenario 1: Wealth Management Firm (Hypothetical)
 
-A Frankfurt-based wealth management firm received a EUR 4.5 million fine from the
-German Federal Financial Supervisory Authority (BaFin) under EU AI Act
-Article 10 and Article 12 obligations.
+Consider a Frankfurt-based wealth management firm facing a hypothetical fine in
+the EUR 1-5 million range from a national financial supervisory authority for
+violations of EU AI Act Article 10 and Article 12 obligations.
 
 **What happened.** The firm deployed a RAG-based advisory system that retrieved
 financial research reports and regulatory guidance to generate client
@@ -274,17 +282,18 @@ The system cited a withdrawn ECB guideline in three client portfolios.
   informed specific client recommendations, the firm could not reconstruct the
   decision chain
 
-**How Provena would have prevented it.** The `FreshnessChecker` would have
-flagged 14-month-old reports as `STALE`. The `ProvenanceValidator` would have
-required source URLs and version identifiers, making it possible to detect when
-a cited guideline was withdrawn. The hash-chained audit trail would have provided
-the forensic reconstruction capability that regulators demanded.
+**How Provena would prevent it.** The `FreshnessChecker` would flag 14-month-old
+reports as `STALE`. The `ProvenanceValidator` would require source URLs and
+version identifiers, making it possible to detect when a cited guideline was
+withdrawn. The hash-chained audit trail would provide the forensic
+reconstruction capability regulators would demand.
 
-### Case 2: French Insurance Company (2027)
+### Scenario 2: Insurance Claims Processor (Hypothetical)
 
-A French insurance company had its AI-assisted claims processing system halted
-by the CNIL (Commission Nationale de l'Informatique et des Libertes) for
-violations of Article 12 and Article 26.
+Consider a French insurance company whose AI-assisted claims processing system
+is hypothetically halted by the ACPR (Autorite de Controle Prudentiel et de
+Resolution, France's insurance and banking supervisor) for violations of
+Article 12 and Article 26.
 
 **What happened.** The company deployed an agentic AI system that retrieved
 policy documents, claims history, and medical guidelines to assist claims
@@ -301,10 +310,10 @@ well below the six-month minimum required by Article 26.
 - No tamper-evident logging -- the company could not demonstrate that logs had
   not been altered after the complaint was filed
 
-**How Provena would have prevented it.** The `ProvenanceMetadata.version` field
-and freshness checking would have flagged the withdrawn guideline. The SQLite
-backend with OTel export provides persistent, tamper-evident storage that meets
-the six-month retention requirement. The `verify_chain()` method provides
+**How Provena would prevent it.** The `ProvenanceMetadata.version` field and
+freshness checking would flag the withdrawn guideline. The SQLite backend with
+OTel export provides persistent, tamper-evident storage that meets the
+six-month retention requirement. The `verify_chain()` method provides
 cryptographic proof that logs have not been modified.
 
 ---

@@ -6,14 +6,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- **`provena audit` gains `--provenance-status` and `--freshness-status`
+  filters**, exposing the `trail.query()` filters that were already supported
+  by the API. Values are case-insensitive, and an unrecognized status is
+  rejected with a clear error rather than quietly matching no records (#85)
+- **`provena summary` gains a `--source/-s` filter**, matching the option
+  already on `provena audit`, so a multi-source pipeline can be inspected one
+  source at a time. Counts are paged rather than taken from a single
+  `query()` call, so they stay accurate past the default 100-row cap (#75)
+- **`provena stats` command** — prints a one-line governance status summary for
+  CI/CD pipelines and shell scripts, showing record count, provenance/freshness
+  breakdowns, chain integrity, and signing status in a parseable format (#76)
+
 ### Fixed
 
-- CLI commands now report missing or invalid `--config` files without a traceback (#108)
+- **`provena mcp serve` now closes the trail on exit** — the server call is wrapped in `try/finally`, so the SQLite handle/WAL is checkpointed and the final buffer flush runs even if `configure()`/`create_server()` raise or `server.run()` returns (#148)
+- **`verify_chain()` returns `ChainVerdict(intact=False)` for a `None`/malformed `chain_hash`** instead of raising `TypeError` out of `hmac.compare_digest`, so corrupted or hand-edited records are reported as broken links rather than crashing the audit path (#146)
+- **`InMemoryBackend.get()` and `get_last()` now hold the backend lock** when reading `_records`, matching every other method on the backend and closing a TOCTOU race that could raise `IndexError` under concurrent `append()` (#145)
+- **`FreshnessChecker.check()` accepts a naive `now` override**, normalizing it to UTC-aware like `created_at`, instead of raising `TypeError: can't subtract offset-naive and offset-aware datetimes` (#147)
+- **`provena[all]` now installs what the README says it does** — the extra
+  resolved to only `yaml,cli,otel`, silently omitting the `postgres`, `mcp` and
+  `pdf` extras the README already documented it as including. Framework
+  adapters remain deliberately excluded (#71)
+
+## [1.1.0] - 2026-08-23
+
+### Added
+
+- **`ContextTrail.query()` gains an `offset` parameter** for pagination,
+  supported across all storage backends (SQLite, PostgreSQL, in-memory).
+  `TrailAggregator.detect_gaps()` now pages through results instead of
+  silently capping at 1,000 records per gap type per trail (#113)
+- OTel spans now include a `provena.record_id` attribute so a trace can be
+  linked back to its audit trail entry (#104)
+- Concise `__repr__` for `ContextEntry`, `TrailRecord`, `ProvenanceMetadata`,
+  `HandoffEdge`, and `RetentionResult` (#80)
+- `TrailAggregator.summary()` now includes an `all_signed` field, matching
+  the `signed` field already present on `ContextTrail.summary()` (#110)
+- `ContextTrail.health()` now includes a `healthy` boolean alongside the
+  existing `status` string, for callers that want a simple truthy check
+
+### Fixed
+
+- **`TrailRecord.config_hash` never populated** — `ContextTrail` now computes a
+  stable hash of its governance configuration (required fields, freshness
+  settings, active policies) and records it on every entry, so a reviewer can
+  tell whether governance settings changed mid-trail. Existing chains are
+  unaffected — `config_hash` is not part of the hash chain (#103)
+- **`migrate --batch-size` validation** — non-positive batch sizes now fail with
+  a clear CLI error instead of crashing (`0`) or silently migrating zero records
+  while reporting `PASS` (`-1`) (#106)
+- **`TrailAggregator.query(trail_label=...)`** now returns an empty result for
+  an unknown label instead of silently falling back to all trails (#107)
+- **`ProvenanceMetadata.from_dict()` and framework integrations** no longer
+  break on `Z`-suffixed ISO timestamps on Python 3.10 (#99)
+- **`ContextTrail.query(limit=...)`** now raises `ValueError` for `limit < 1`
+  instead of returning backend-dependent results (#101)
+- **`PostgreSQLBackend`** replaces internal `assert` checks with explicit
+  `RuntimeError`s so they aren't stripped under `python -O` (#45)
+- **`ContextTrail.summary()`** on an empty trail now includes the `signed` key
+  instead of omitting it (#117)
+- **`FreshnessChecker`**'s temporal regex now correctly matches the `"in <year>"`
+  pattern it claims to support (#100)
 - **Malformed policy enforcement values** — invalid `enforcement` settings now
   log a warning and skip only the affected policy entry instead of crashing
   `PolicyEngine.from_config()` (#109)
-- **`TrailAggregator.summary()`** now includes an `all_signed` field, matching
-  the `signed` field already present on `ContextTrail.summary()` (#110)
+- CLI commands now report missing or invalid `--config` files without a
+  traceback (#108)
+- LICENSE file replaced with the canonical Apache 2.0 text — the previous
+  reformatted copy wasn't detected by GitHub's license scanner
+
+### Testing
+
+- Added unit tests for MCP server resource endpoints:
+  `provena://health`, `provena://summary`, `provena://chain/status` (#111)
+- Added coverage for MCP tool call responses: `list_violations`, `get_summary`,
+  `check_freshness`, `check_provenance` (#95)
 
 ## [1.0.1] - 2026-07-25
 
