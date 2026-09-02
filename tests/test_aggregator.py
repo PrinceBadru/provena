@@ -442,4 +442,4 @@ def test_context_trail_query_supports_offset():
 
     assert len(first_batch) == 10
     assert len(second_batch) == 10
-    assert first_batch != second_batch 
+    assert first_batch != second_batch
