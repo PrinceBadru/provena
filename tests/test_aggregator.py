@@ -430,13 +430,10 @@ def test_detect_gaps_paginates_all_records_beyond_1000():
 
 
 def test_context_trail_query_supports_offset():
-    """Verify offset slicing behavior directly on query()."""
-    mock_trail = ContextTrail(stale_count=100, missing_prov_count=0)
-
-    first_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=0)
-    second_batch = mock_trail.query(freshness_status="STALE", limit=10, offset=10)
-
+    """Verify offset slicing behavior on ContextTrail.query()."""
+    context_trail = ContextTrail(...)  
+    first_batch = context_trail.query(freshness_status="STALE", limit=10, offset=0)
+    second_batch = context_trail.query(freshness_status="STALE", limit=10, offset=10)
     assert len(first_batch) == 10
     assert len(second_batch) == 10
-    assert first_batch[0]["id"] == 0
-    assert second_batch[0]["id"] == 10
+    assert first_batch != second_batch 

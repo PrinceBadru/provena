@@ -678,7 +678,12 @@ class ContextTrail:
         return self._backend.get_last()
 
     def summary(self) -> dict[str, Any]:
-        """Returns summary based on a combined view without forcing an I/O flush."""
+        """Generate an aggregate summary of the audit trail.
+
+        Returns:
+            A dictionary with total count, provenance/freshness/source
+            breakdowns, and signing status.
+        """
         records = self._backend.all_records()
         if self._buffer:
             # Append in-memory buffered records to the snapshot
@@ -722,7 +727,6 @@ class ContextTrail:
         Returns:
             The serialized trail data as a string.
         """
-        """Flush buffered records and export all trail records."""
         if self._buffer:
             self._buffer.flush()
         records = self._backend.all_records()
