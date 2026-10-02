@@ -159,6 +159,9 @@ def _sigterm_handler(signum: int, frame: Any) -> None:
         buffer._sigterm_flush()
     if callable(_prev_sigterm_handler):
         _prev_sigterm_handler(signum, frame)
+    elif _prev_sigterm_handler == signal.SIG_DFL:
+        signal.signal(signum, signal.SIG_DFL)
+        signal.raise_signal(signum)
 
 
 def _weak_flush(
